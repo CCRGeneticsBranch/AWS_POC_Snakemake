@@ -9,5 +9,9 @@
         "fastqc": {
                 "threads": "4",
                 "mem": "10g"
-        }        
+        },
+        "star": {
+                "threads": "10",
+                "mem": "20g"
+        }
 }

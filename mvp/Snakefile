@@ -26,7 +26,10 @@ SAMPLES = ["Test1_R_T"]
 
 rule all:
 	input:
-		expand(join("{sample}","fastqc","{sample}_R1_fastqc.zip"),sample=SAMPLES),	
+		expand(join("{sample}","fastqc","{sample}_R1_fastqc.zip"),sample=SAMPLES),
+		expand(join("{sample}","multiqc","multiqc_report.html"),sample=SAMPLES),
+		expand(join("{sample}","star_out","{sample}.star.bam"),sample=SAMPLES),
+		expand(join("{sample}","star_out","{sample}.star_transcriptome.bam"),sample=SAMPLES),
 
 
 rule fastqc:
@@ -40,7 +43,7 @@ rule fastqc:
 		join("{sample}","fastqc","{sample}_R2_fastqc.zip")
 
 	conda: "env.yaml"
-	
+
 	threads: getthreads("fastqc")
 
 #	container: "docker://nciccbr/ccbr_fastqc_0.11.9:v1.1"
@@ -50,3 +53,64 @@ rule fastqc:
 	fastqc {input} -o  {params.out}
 
 	"""
+
+rule multiqc:
+	input:
+		join("{sample}","fastqc","{sample}_R1_fastqc.zip"),
+		join("{sample}","fastqc","{sample}_R2_fastqc.zip")
+	params:
+		out = join("{sample}","multiqc")
+	output:
+		join("{sample}","multiqc","multiqc_report.html")
+
+	conda: "env.yaml"
+
+	threads: getthreads("fastqc")
+
+	shell: """
+
+	mkdir -p {params.out}
+	multiqc {input} -o {params.out}
+
+	"""
+
+rule star:
+	input:
+		R1 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R1.fastq.gz", keep_local=True),
+		R2 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R2.fastq.gz", keep_local=True),
+	params:
+		out = join("{sample}","star_out"),
+		STARgenome = S3.remote("ccr-genomics-testdata/References/index-STAR_2.7.9a/", keep_local=True),
+		gtf = S3.remote("ccr-genomics-testdata/References/gencode.v37lift37.annotation_ERCC92.gtf", keep_local=True),
+	output:
+		G_bam = join("{sample}","star_out","{sample}.star.bam"),
+		T_bam = join("{sample}","star_out","{sample}.star_transcriptome.bam")
+
+	threads: getthreads("star")
+
+	conda: "env.yaml"
+
+	shell: """
+
+	cd {params.out}
+	STAR --genomeDir {params.STARgenome} \
+		--readFilesIn  {input} \
+		--sjdbGTFfile ${params.gtf} \
+		--readFilesCommand zcat \
+		--runThreadN {threads} \
+		--twopassMode Basic \
+		--outSAMunmapped Within \
+		--chimSegmentMin 12 \
+		--chimJunctionOverhangMin 12 \
+		--alignSJDBoverhangMin 10 \
+		--alignMatesGapMax 100000 \
+		--chimSegmentReadGapMax 3 \
+		--outFilterMismatchNmax 2 \
+		--outSAMtype BAM SortedByCoordinate \
+		--quantMode TranscriptomeSAM \
+		--outBAMsortingThreadN 6 \
+		--limitBAMsortRAM 80000000000
+	mv *Aligned.sortedByCoord.out.bam {output.G_bam}
+	mv *Aligned.toTranscriptome.out.bam {output.T_bam}
+	"""
+
