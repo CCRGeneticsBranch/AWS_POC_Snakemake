@@ -1,0 +1,13 @@
+{
+        "__default__": {
+                "mem": "8g",
+                "threads": "2",
+                "name"      : "{rule}.{wildcards}",
+                "output"    : "logs/.%j.{rule}.{wildcards}.out",
+                "error"     : "logs/.%j.{rule}.{wildcards}.err"
+        },
+        "fastqc": {
+                "threads": "4",
+                "mem": "10g"
+        }        
+}

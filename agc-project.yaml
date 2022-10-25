@@ -12,7 +12,7 @@ workflows:
       version: 1.0
     sourceURL: mvp/
 data:
-  - location: s3://ccr-genomics-testdata
+  - location: s3://ccr-genomics-testdata/*
     readOnly: true
 contexts:
   onDemandContext:

@@ -3,7 +3,18 @@ from os.path import join
 from os import listdir
 import os
 import re
+import yaml
 
+
+configfile: "./config.yaml"
+
+RESOURCESYAML=config['resources']
+
+with open(RESOURCESYAML) as json_file:
+    CLUSTER = yaml.safe_load(json_file)
+getthreads=lambda rname:int(CLUSTER[rname]["threads"]) if rname in CLUSTER and "threads" in CLUSTER[rname] else int(CLUSTER["__default__"]["threads"])
+getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUSTER[rname] else CLUSTER["__default__"]["mem"]
+getmemG=lambda rname:getmemg(rname).replace("g","G")
 
 from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
 S3 = S3RemoteProvider()
@@ -20,19 +31,20 @@ rule all:
 
 rule fastqc:
 	input:
-		R1 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R1.fastq.gz",sample=SAMPLES),
-		R2 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R2.fastq.gz",sample=SAMPLES),
+		R1 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R1.fastq.gz", keep_local=True),
+		R2 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R2.fastq.gz", keep_local=True),
 	params:
 		out = join("{sample}","fastqc")
 	output:
 		join("{sample}","fastqc","{sample}_R1_fastqc.zip"),
 		join("{sample}","fastqc","{sample}_R2_fastqc.zip")
 
-	envmodules:
-	"fastqc/0.11.9"
+	conda: "env.yaml"
+	
+	threads: getthreads("fastqc")
 
-	container: "docker://nciccbr/ccbr_fastqc_0.11.9:v1.1"
-		
+#	container: "docker://nciccbr/ccbr_fastqc_0.11.9:v1.1"
+
 	shell: """
 
 	fastqc {input} -o  {params.out}
