@@ -4,7 +4,7 @@ from os import listdir
 import os
 import re
 import yaml
-
+import boto3
 
 configfile: "./config.yaml"
 
@@ -19,6 +19,13 @@ getmemG=lambda rname:getmemg(rname).replace("g","G")
 from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
 S3 = S3RemoteProvider()
 
+s3 = boto3.resource('s3')
+my_bucket = s3.Bucket('ccr-genomics-testdata')
+
+for object_summary in my_bucket.objects.filter(Prefix="chr"):
+    print(object_summary.key)
+
+
 SAMPLES = ["Test1_R_T"]
 
 #workpath="./"
@@ -26,8 +33,8 @@ SAMPLES = ["Test1_R_T"]
 
 rule all:
 	input:
-		expand(join("{sample}","fastqc","{sample}_R1_fastqc.zip"),sample=SAMPLES),
-		expand(join("{sample}","multiqc","multiqc_report.html"),sample=SAMPLES),
+#		expand(join("{sample}","fastqc","{sample}_R1_fastqc.zip"),sample=SAMPLES),
+#		expand(join("{sample}","multiqc","multiqc_report.html"),sample=SAMPLES),
 		expand(join("{sample}","star_out","{sample}.star.bam"),sample=SAMPLES),
 		expand(join("{sample}","star_out","{sample}.star_transcriptome.bam"),sample=SAMPLES),
 
@@ -78,10 +85,12 @@ rule star:
 	input:
 		R1 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R1.fastq.gz", keep_local=True),
 		R2 = S3.remote("ccr-genomics-testdata/testdata/{sample}_R2.fastq.gz", keep_local=True),
+		STARgenome = S3.remote("ccr-genomics-testdata/References/index-STAR_2.7.9a.tar", keep_local=True),
+		gtf = S3.remote("ccr-genomics-testdata/References/gencode.v37lift37.annotation_ERCC92.gtf", keep_local=True),
 	params:
 		out = join("{sample}","star_out"),
-		STARgenome = S3.remote("ccr-genomics-testdata/References/index-STAR_2.7.9a/", keep_local=True),
-		gtf = S3.remote("ccr-genomics-testdata/References/gencode.v37lift37.annotation_ERCC92.gtf", keep_local=True),
+#		STARgenome = S3.remote("ccr-genomics-testdata/References/index-STAR_2.7.9a.tar", keep_local=True),
+#		gtf = S3.remote("ccr-genomics-testdata/References/gencode.v37lift37.annotation_ERCC92.gtf", keep_local=True),
 	output:
 		G_bam = join("{sample}","star_out","{sample}.star.bam"),
 		T_bam = join("{sample}","star_out","{sample}.star_transcriptome.bam")
@@ -91,11 +100,20 @@ rule star:
 	conda: "env.yaml"
 
 	shell: """
+#	set +u; source /usr/local/bin/virtualenv; set -u
+#	cd {params.out}
+	
+	indexdir=$(dirname {input.STARgenome})
+	indexdir="${{indexdir}}/index-STAR_2.7.9a"
+	
+	if  [ ! -f ${{indexdir}}/SA ];
+	then
+	tar -xvf {input.STARgenome} 
+	fi
 
-	cd {params.out}
-	STAR --genomeDir {params.STARgenome} \
-		--readFilesIn  {input} \
-		--sjdbGTFfile ${params.gtf} \
+	STAR --genomeDir $indexdir \
+		--readFilesIn  {input.R1} {input.R2} \
+		--sjdbGTFfile {input.gtf} \
 		--readFilesCommand zcat \
 		--runThreadN {threads} \
 		--twopassMode Basic \
@@ -110,7 +128,7 @@ rule star:
 		--quantMode TranscriptomeSAM \
 		--outBAMsortingThreadN 6 \
 		--limitBAMsortRAM 80000000000
-	mv *Aligned.sortedByCoord.out.bam {output.G_bam}
-	mv *Aligned.toTranscriptome.out.bam {output.T_bam}
+	mv *Aligned.sortedByCoord.out.bam {params.out}/{output.G_bam}
+	mv *Aligned.toTranscriptome.out.bam {params.out}/{output.T_bam}
 	"""
 
