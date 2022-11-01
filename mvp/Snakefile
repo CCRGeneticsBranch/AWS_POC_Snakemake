@@ -15,6 +15,8 @@ with open(RESOURCESYAML) as json_file:
 getthreads=lambda rname:int(CLUSTER[rname]["threads"]) if rname in CLUSTER and "threads" in CLUSTER[rname] else int(CLUSTER["__default__"]["threads"])
 getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUSTER[rname] else CLUSTER["__default__"]["mem"]
 getmemG=lambda rname:getmemg(rname).replace("g","G")
+getmem_mb=lambda rname:int(getmemg(rname).replace("g",""))*1000
+
 
 from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
 S3 = S3RemoteProvider()
@@ -96,6 +98,8 @@ rule star:
 		T_bam = join("{sample}","star_out","{sample}.star_transcriptome.bam")
 
 	threads: getthreads("star")
+	resources:
+		mem_mb=getmem_mb("star")
 
 	conda: "env.yaml"
 
@@ -103,9 +107,10 @@ rule star:
 #	set +u; source /usr/local/bin/virtualenv; set -u
 #	cd {params.out}
 	
-	indexdir=$(dirname {input.STARgenome})
-	indexdir="${{indexdir}}/index-STAR_2.7.9a"
-	
+#	indexdir=$(dirname {input.STARgenome})
+#	indexdir="${{indexdir}}/index-STAR_2.7.9a"
+	indexdir="index-STAR_2.7.9a"
+
 	if  [ ! -f ${{indexdir}}/SA ];
 	then
 	tar -xvf {input.STARgenome} 
@@ -128,7 +133,7 @@ rule star:
 		--quantMode TranscriptomeSAM \
 		--outBAMsortingThreadN 6 \
 		--limitBAMsortRAM 80000000000
-	mv *Aligned.sortedByCoord.out.bam {params.out}/{output.G_bam}
-	mv *Aligned.toTranscriptome.out.bam {params.out}/{output.T_bam}
+	mv *Aligned.sortedByCoord.out.bam {output.G_bam}
+	mv *Aligned.toTranscriptome.out.bam {output.T_bam}
 	"""
 
