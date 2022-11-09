@@ -1,0 +1,6 @@
+{
+  "mainWorkflowURL": ".",
+
+  "engineOptions": "-j 10 -f --use-singularity --printshellcmds --cores 16"
+}
+

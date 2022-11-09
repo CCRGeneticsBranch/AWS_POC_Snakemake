@@ -10,7 +10,7 @@ workflows:
     type:
       language: snakemake
       version: 1.0
-    sourceURL: mvp/
+    sourceURL: .
 data:
   - location: s3://ccr-genomics-testdata/*
     readOnly: true

@@ -6,7 +6,7 @@ import re
 import yaml
 import boto3
 
-configfile: "./config.yaml"
+configfile: "config/config.yaml"
 
 RESOURCESYAML=config['resources']
 
@@ -56,7 +56,7 @@ rule fastqc:
 
 	threads: getthreads("fastqc")
 
-#	container: "docker://nciccbr/ccbr_fastqc_0.11.9:v1.1"
+	container: "docker://nciccbr/ccrgb_qctools:latest"
 
 	shell: """
 
@@ -76,6 +76,8 @@ rule multiqc:
 	conda: "env.yaml"
 
 	threads: getthreads("fastqc")
+	
+	container: "docker://nciccbr/ccrgb_qctools:latest"
 
 	shell: """
 
@@ -97,6 +99,8 @@ rule star:
 	output:
 		G_bam = join("{sample}","star_out","{sample}.star.bam"),
 		T_bam = join("{sample}","star_out","{sample}.star_transcriptome.bam")
+	
+	container: "docker://nciccbr/ncigb_star_v2.7.10a:latest"
 
 	threads: getthreads("star")
 	resources:
@@ -150,6 +154,8 @@ rule rsem:
 	threads: getthreads("star")
 	resources:
 		mem_mb=getmem_mb("star")
+
+	container: "docker://nciccbr/ccbr_rsem_1.3.3:v1.0"
 
 	conda: "env.yaml"
 

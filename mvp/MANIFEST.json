@@ -1,7 +1,0 @@
-{
-  "mainWorkflowURL": ".",
-  "inputFileURLs": [
-    "inputs.json"
-  ],
-  "engineOptions": "-j 10 --use-conda --printshellcmds --conda-prefix /mnt/efs/condacache --cores 16"
-}
